@@ -11,4 +11,8 @@ variable "ip_address"   { type = string }
 variable "gateway"      { type = string }
 variable "ssh_key"      { type = string }
 variable "dns_servers"  { type = list(string) }
-variable "tags"         { type = list(string); default = [] }
+
+variable "tags" {
+  type    = list(string)
+  default = []
+}

@@ -1,7 +1,4 @@
-# Managed by Ansible — kubeadm InitConfiguration
-# Generated for: {{ inventory_hostname }} ({{ ansible_host }})
----
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: "{{ ansible_host }}"
@@ -10,7 +7,7 @@ nodeRegistration:
   name: "{{ inventory_hostname }}"
   criSocket: "unix:///run/containerd/containerd.sock"
 ---
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 clusterName: "{{ cluster_name }}"
 controlPlaneEndpoint: "{{ control_plane_endpoint }}"
@@ -25,9 +22,9 @@ apiServer:
     - "kubernetes.default.svc"
     - "kubernetes.default.svc.cluster.local"
     - "{{ control_plane_endpoint.split(':')[0] }}"
-    {% for host in groups['masters'] %}
+{% for host in groups['masters'] %}
     - "{{ hostvars[host]['ansible_host'] }}"
-    {% endfor %}
+{% endfor %}
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
