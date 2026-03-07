@@ -48,7 +48,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    app.kubernetes.io/name: ww-gitops
+    app.kubernetes.io/name: weave-gitops
   ports:
     - port: 9001
       targetPort: 9001
