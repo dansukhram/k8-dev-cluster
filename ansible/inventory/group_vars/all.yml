@@ -9,8 +9,8 @@ cluster_name: "k8-dev"
 control_plane_endpoint: "172.16.1.20:6443"
 
 # ── Kubernetes ───────────────────────────────────────────────
-kubernetes_version: "1.31"          # Minor version (apt repo)
-kubernetes_pkg_version: "1.31.*"    # Wildcard picks latest patch
+kubernetes_version: "1.33"          # Minor version (apt repo)
+kubernetes_pkg_version: "1.33.*"    # Wildcard picks latest patch
 
 # ── Network ──────────────────────────────────────────────────
 pod_network_cidr: "10.244.0.0/16"  # Flannel default
