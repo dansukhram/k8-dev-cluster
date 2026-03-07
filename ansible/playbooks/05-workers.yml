@@ -1,4 +1,20 @@
 ---
+# ─── Play 1: Fetch join command fresh from master1 ───────────
+- name: Fetch worker join command from master1
+  hosts: "{{ groups['masters'][0] }}"
+  become: true
+
+  tasks:
+    - name: Generate fresh worker join command
+      command: kubeadm token create --print-join-command
+      register: worker_join_raw
+
+    - name: Store join command as fact
+      set_fact:
+        k8s_join_command: "{{ worker_join_raw.stdout }}"
+        cacheable: true
+
+# ─── Play 2: Join all workers ────────────────────────────────
 - name: Join worker nodes to the cluster
   hosts: workers
   become: true
