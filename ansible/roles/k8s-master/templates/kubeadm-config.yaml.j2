@@ -1,0 +1,34 @@
+# Managed by Ansible — kubeadm InitConfiguration
+# Generated for: {{ inventory_hostname }} ({{ ansible_host }})
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ ansible_host }}"
+  bindPort: 6443
+nodeRegistration:
+  name: "{{ inventory_hostname }}"
+  criSocket: "unix:///run/containerd/containerd.sock"
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+clusterName: "{{ cluster_name }}"
+controlPlaneEndpoint: "{{ control_plane_endpoint }}"
+networking:
+  podSubnet: "{{ pod_network_cidr }}"
+  serviceSubnet: "{{ service_cidr }}"
+apiServer:
+  certSANs:
+    - "127.0.0.1"
+    - "kubernetes"
+    - "kubernetes.default"
+    - "kubernetes.default.svc"
+    - "kubernetes.default.svc.cluster.local"
+    - "{{ control_plane_endpoint.split(':')[0] }}"
+    {% for host in groups['masters'] %}
+    - "{{ hostvars[host]['ansible_host'] }}"
+    {% endfor %}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd

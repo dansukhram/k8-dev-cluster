@@ -1,0 +1,98 @@
+---
+# ─── Play 1: Bootstrap the first control-plane node ──────────
+- name: Initialise primary control-plane node
+  hosts: "{{ groups['masters'][0] }}"
+  become: true
+
+  tasks:
+    - name: Check if cluster already initialised
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_done
+
+    - name: Template kubeadm InitConfiguration
+      template:
+        src: "{{ playbook_dir }}/../roles/k8s-master/templates/kubeadm-config.yaml.j2"
+        dest: /tmp/kubeadm-config.yaml
+        mode: "0600"
+      when: not kubeadm_done.stat.exists
+
+    - name: Run kubeadm init
+      command: kubeadm init --config /tmp/kubeadm-config.yaml --upload-certs
+      when: not kubeadm_done.stat.exists
+      register: kubeadm_init_result
+
+    - name: Create .kube directory for ubuntu user
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Copy admin.conf to ubuntu home
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: true
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+
+    - name: Install Flannel CNI
+      become_user: ubuntu
+      command: >
+        kubectl apply -f
+        https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+
+    - name: Generate worker join command
+      command: kubeadm token create --print-join-command
+      register: worker_join_raw
+
+    - name: Upload certs and capture certificate key
+      command: kubeadm init phase upload-certs --upload-certs
+      register: cert_upload_raw
+
+    - name: Store join facts for other plays
+      set_fact:
+        k8s_join_command: "{{ worker_join_raw.stdout }}"
+        k8s_cert_key: "{{ cert_upload_raw.stdout_lines[-1] }}"
+        cacheable: true
+
+# ─── Play 2: Join additional control-plane nodes ─────────────
+- name: Join additional control-plane nodes
+  hosts: "{{ groups['masters'][1:] }}"
+  become: true
+
+  tasks:
+    - name: Check if already joined
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_done
+
+    - name: Join as control-plane member
+      command: >
+        {{ hostvars[groups['masters'][0]]['k8s_join_command'] }}
+        --control-plane
+        --certificate-key {{ hostvars[groups['masters'][0]]['k8s_cert_key'] }}
+        --node-name {{ inventory_hostname }}
+      when: not kubeadm_done.stat.exists
+
+    - name: Create .kube directory for ubuntu user
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Copy admin.conf to ubuntu home
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: true
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"

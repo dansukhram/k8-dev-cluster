@@ -1,0 +1,20 @@
+---
+# ── Cluster Identity ─────────────────────────────────────────
+cluster_name: "k8-dev"
+
+# Control plane endpoint — points to first master.
+# For true HA, replace with your load-balancer VIP.
+# (VMs 111/112 in Proxmox appear to be lb1/lb2 — wire them up
+#  with HAProxy + keepalived then update this value.)
+control_plane_endpoint: "172.16.1.20:6443"
+
+# ── Kubernetes ───────────────────────────────────────────────
+kubernetes_version: "1.31"          # Minor version (apt repo)
+kubernetes_pkg_version: "1.31.*"    # Wildcard picks latest patch
+
+# ── Network ──────────────────────────────────────────────────
+pod_network_cidr: "10.244.0.0/16"  # Flannel default
+service_cidr:     "10.96.0.0/12"
+
+# ── Timezone ─────────────────────────────────────────────────
+timezone: "America/Toronto"

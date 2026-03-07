@@ -1,0 +1,6 @@
+---
+- name: Install Kubernetes packages (kubeadm / kubelet / kubectl)
+  hosts: kubernetes
+  become: true
+  roles:
+    - kubernetes

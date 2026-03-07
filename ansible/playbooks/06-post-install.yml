@@ -1,0 +1,37 @@
+---
+# ─── Fetch kubeconfig to local workstation ───────────────────
+- name: Fetch kubeconfig to local machine
+  hosts: "{{ groups['masters'][0] }}"
+
+  tasks:
+    - name: Fetch kubeconfig
+      fetch:
+        src: /home/ubuntu/.kube/config
+        dest: "{{ playbook_dir }}/../../kubeconfig"
+        flat: true
+
+    - name: Fix API server address in local kubeconfig
+      delegate_to: localhost
+      replace:
+        path: "{{ playbook_dir }}/../../kubeconfig"
+        regexp: 'server: https://[^:]+:6443'
+        replace: "server: https://172.16.1.20:6443"
+
+# ─── Final cluster validation ────────────────────────────────
+- name: Validate cluster is healthy
+  hosts: "{{ groups['masters'][0] }}"
+
+  tasks:
+    - name: Wait for all nodes to be Ready
+      become_user: ubuntu
+      command: kubectl get nodes
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+      register: node_status
+      until: node_status.stdout_lines | select('search', 'NotReady') | list | length == 0
+      retries: 20
+      delay: 15
+
+    - name: Show node status
+      debug:
+        msg: "{{ node_status.stdout_lines }}"

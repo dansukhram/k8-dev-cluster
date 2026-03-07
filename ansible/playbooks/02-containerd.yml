@@ -1,0 +1,6 @@
+---
+- name: Install and configure containerd runtime
+  hosts: kubernetes
+  become: true
+  roles:
+    - containerd

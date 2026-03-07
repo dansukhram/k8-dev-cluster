@@ -1,0 +1,27 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+*_override.tf
+*.tfvars
+!*.tfvars.example
+.terraform.tfstate.lock.info
+
+# Ansible
+*.retry
+
+# Secrets & generated files
+.env
+kubeconfig
+*.pem
+*.key
+secrets/
+
+# OS
+.DS_Store
+*.swp
+*~
+__pycache__/

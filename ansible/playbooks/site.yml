@@ -1,0 +1,8 @@
+---
+# Full cluster configuration — runs all playbooks in order
+- import_playbook: 01-common.yml
+- import_playbook: 02-containerd.yml
+- import_playbook: 03-kubernetes.yml
+- import_playbook: 04-masters.yml
+- import_playbook: 05-workers.yml
+- import_playbook: 06-post-install.yml

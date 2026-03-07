@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────
+# terraform.tfvars — copy to terraform.tfvars and customise
+# Note: secrets.tfvars holds your API token (gitignored)
+# ─────────────────────────────────────────────────────────────
+
+proxmox_endpoint = "https://172.16.1.2:8006"
+proxmox_node     = "k8-dev"
+template_vm_id   = 9002
+
+# ── Control Plane Nodes ──────────────────────────────────────
+master_nodes = [
+  { name = "k8-master1-dev", vm_id = 200, ip = "172.16.1.20/24" },
+  { name = "k8-master2-dev", vm_id = 201, ip = "172.16.1.21/24" },
+  { name = "k8-master3-dev", vm_id = 202, ip = "172.16.1.22/24" },
+]
+
+# ── Worker Nodes ─────────────────────────────────────────────
+worker_nodes = [
+  { name = "k8-worker1-dev", vm_id = 203, ip = "172.16.1.23/24" },
+  { name = "k8-worker2-dev", vm_id = 204, ip = "172.16.1.24/24" },
+  { name = "k8-worker3-dev", vm_id = 205, ip = "172.16.1.25/24" },
+  { name = "k8-worker4-dev", vm_id = 206, ip = "172.16.1.26/24" },
+  { name = "k8-worker5-dev", vm_id = 207, ip = "172.16.1.27/24" },
+]
+
+# ── Specs ────────────────────────────────────────────────────
+master_cores     = 2
+master_memory_mb = 4096
+worker_cores     = 2
+worker_memory_mb = 4096
+disk_size_gb     = 50
+
+# ── Network ──────────────────────────────────────────────────
+network_bridge = "vmbr0"
+storage_pool   = "local-lvm"
+gateway        = "172.16.1.1"
+dns_servers    = ["8.8.8.8", "8.8.4.4"]
+
+ssh_public_key = "ssh-ed25519 YOUR_PUBLIC_KEY_HERE"

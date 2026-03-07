@@ -1,0 +1,8 @@
+---
+# Worker join tasks are driven from playbooks/05-workers.yml
+# Add per-node worker configuration here if needed.
+- name: Verify kubelet is running
+  systemd:
+    name: kubelet
+    state: started
+    enabled: true

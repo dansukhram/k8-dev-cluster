@@ -1,0 +1,9 @@
+---
+# This role's tasks are driven directly from playbooks/04-masters.yml
+# to allow clean multi-host sequencing. This file is intentionally
+# minimal — add node-level master tasks here if needed.
+- name: Verify kubelet is running
+  systemd:
+    name: kubelet
+    state: started
+    enabled: true

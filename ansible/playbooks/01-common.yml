@@ -1,0 +1,6 @@
+---
+- name: Apply common OS configuration to all nodes
+  hosts: kubernetes
+  become: true
+  roles:
+    - common
