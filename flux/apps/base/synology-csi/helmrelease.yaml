@@ -27,6 +27,8 @@ spec:
           fsType: ext4
     driver:
       existingConfigSecret: democratic-csi-driver-config
+      config:
+        driver: synology-api-iscsi
     node:
       driver:
         extraEnv:
