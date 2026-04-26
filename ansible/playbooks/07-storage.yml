@@ -1,0 +1,45 @@
+---
+- name: Install iSCSI initiator on all cluster nodes
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install open-iscsi and multipath tools
+      apt:
+        name:
+          - open-iscsi
+          - multipath-tools
+        state: present
+        update_cache: yes
+
+    - name: Enable and start iscsid
+      systemd:
+        name: iscsid
+        enabled: yes
+        state: started
+
+    - name: Enable and start multipathd
+      systemd:
+        name: multipathd
+        enabled: yes
+        state: started
+
+    - name: Ensure unique iSCSI initiator name per node
+      shell: |
+        if [ ! -s /etc/iscsi/initiatorname.iscsi ]; then
+          echo "InitiatorName=$(iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+        fi
+      args:
+        creates: /etc/iscsi/initiatorname.iscsi
+
+    - name: Configure iscsid for automatic session login on boot
+      lineinfile:
+        path: /etc/iscsi/iscsid.conf
+        regexp: '^node.startup'
+        line: 'node.startup = automatic'
+      notify: restart iscsid
+
+  handlers:
+    - name: restart iscsid
+      systemd:
+        name: iscsid
+        state: restarted

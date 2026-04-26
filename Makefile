@@ -1,4 +1,4 @@
-.PHONY: all help prereqs template init validate plan apply ansible flux destroy
+.PHONY: all help prereqs template init validate plan apply ansible storage flux destroy
 
 SHELL        := /bin/bash
 TERRAFORM    := terraform -chdir=terraform
@@ -39,6 +39,9 @@ ping: ## Test Ansible connectivity to all nodes
 
 ansible: ## Run full Ansible configuration playbook
 	cd ansible && $(ANSIBLE) playbooks/site.yml
+
+storage: ## Install iSCSI initiator on all cluster nodes (prerequisite for Synology CSI driver)
+	cd ansible && $(ANSIBLE) playbooks/07-storage.yml
 
 flux: ## Bootstrap Flux GitOps
 	bash scripts/bootstrap-flux.sh

@@ -1,0 +1,30 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: synology-csi
+  namespace: synology-csi
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: synology-csi
+      version: "^1.1.0"
+      sourceRef:
+        kind: HelmRepository
+        name: synology-csi
+        namespace: flux-system
+      interval: 1h
+  values:
+    global:
+      loginSecret: synology-csi-client-info
+    storageClasses:
+      - name: synology-iscsi
+        defaultStorageClass: true
+        reclaimPolicy: Retain
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          fsType: ext4
+          dsm: "172.16.1.30"
+          location: "/volume2"
+          protocol: iscsi

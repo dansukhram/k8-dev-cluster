@@ -23,6 +23,7 @@ Production-style Kubernetes cluster on Proxmox VE using **Terraform**, **Ansible
 Container runtime : containerd (SystemdCgroup=true)
 CNI               : Flannel  (10.244.0.0/16)
 GitOps            : Flux v2
+Storage           : Synology NAS (172.16.1.30) — iSCSI via Synology CSI Driver
 ```
 
 ---
@@ -217,7 +218,103 @@ kubectl get pods -n flux-system
 
 ---
 
-## Step 9 — Deploy your first app via GitOps
+## Step 9 — Configure Persistent Storage (Synology NAS + iSCSI)
+
+This cluster uses a **Synology NAS (172.16.1.30)** as its persistent storage backend, exposed via iSCSI and provisioned dynamically through the official **Synology CSI Driver**. The StorageClass `synology-iscsi` is set as the cluster default.
+
+### Step 9a — Prepare the Synology NAS (one-time, in DSM UI)
+
+1. **Create a dedicated DSM user for the CSI driver**
+   - Control Panel → User & Group → Create user `k8s-csi` → add to `administrators` group
+
+2. **Verify iSCSI service is enabled**
+   - SAN Manager → Settings → iSCSI service: **ON**
+
+3. **Note the HTTPS API port** (default: `5001`)
+   - Control Panel → Network → DSM Settings → confirm HTTPS is enabled
+
+### Step 9b — Install iSCSI initiator on all nodes
+
+```bash
+make storage
+```
+
+This runs `ansible/playbooks/07-storage.yml` which installs `open-iscsi` and `multipath-tools` on every node and ensures `iscsid` + `multipathd` are running and enabled on boot.
+
+### Step 9c — Apply the CSI driver credentials Secret
+
+Create the following file **locally** — do **not** commit it to git:
+
+```yaml
+# synology-csi-secret.yaml  ← delete this file after applying!
+apiVersion: v1
+kind: Secret
+metadata:
+  name: synology-csi-client-info
+  namespace: synology-csi
+type: Opaque
+stringData:
+  client-info.yml: |
+    clients:
+      - host: 172.16.1.30
+        port: 5001
+        https: true
+        username: k8s-csi
+        password: YOUR_K8S_CSI_PASSWORD
+        skipCertificateValidation: true
+```
+
+Apply it:
+```bash
+kubectl create namespace synology-csi
+kubectl apply -f synology-csi-secret.yaml
+rm synology-csi-secret.yaml   # delete immediately after applying
+```
+
+> **Security note:** The Secret is managed out-of-band from Flux intentionally — credentials must never be committed to git. After Vault is deployed, this Secret will be rotated and injected via Vault Agent.
+
+### Step 9d — Verify CSI driver deployment
+
+Flux picks up the manifests in `flux/apps/base/synology-csi/` automatically. Watch the rollout:
+
+```bash
+# CSI controller (1 pod) + node DaemonSet (1 pod per node = 8 pods)
+kubectl get pods -n synology-csi -w
+
+# Verify default StorageClass is created
+kubectl get storageclass
+# NAME               PROVISIONER              RECLAIMPOLICY   DEFAULT
+# synology-iscsi     csi.san.synology.com     Retain          true
+```
+
+### Step 9e — Test storage provisioning
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: csi-test
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: synology-iscsi
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+
+kubectl get pvc csi-test -w   # Pending → Bound (30-60s)
+kubectl delete pvc csi-test
+```
+
+On the Synology: SAN Manager → LUN should show a new LUN appear when the PVC binds, and disappear after delete (LUN cleanup is manual with Retain policy — see note below).
+
+> **Retain policy:** `storageClassName: synology-iscsi` uses `reclaimPolicy: Retain`. Deleting a PVC leaves the backing LUN intact on the NAS. This is intentional — it prevents accidental data loss. To fully reclaim storage, delete the LUN manually in SAN Manager → LUN after confirming data is no longer needed.
+
+---
+
+## Step 10 — Deploy your first app via GitOps
 
 Create app manifests and commit — Flux handles the rest:
 
@@ -266,6 +363,9 @@ ssh ubuntu@172.16.1.20
 # Watch cluster events
 kubectl get events -A --sort-by='.lastTimestamp'
 
+# Force Flux to reconcile immediately
+flux reconcile kustomization apps --with-source
+
 # Upgrade Kubernetes (edit kubernetes_version in group_vars/all.yml, then)
 cd ansible && ansible-playbook playbooks/03-kubernetes.yml
 
@@ -277,11 +377,11 @@ make destroy
 
 ## Future Improvements
 
-- **HA Load Balancer** — You already have `k8-lb1-dev` and `k8-lb2-dev` VMs (IDs 111/112) in Proxmox. Configure HAProxy + Keepalived on them, create a VIP (e.g. `172.16.1.19`), and update `control_plane_endpoint` in `ansible/inventory/group_vars/all.yml` before first init.
-- **Persistent Storage** — Add Longhorn or NFS provisioner for PersistentVolumes
-- **Ingress** — Deploy ingress-nginx or Traefik via Flux
+- **HA Load Balancer** — Configure HAProxy + Keepalived on `k8-lb1-dev` / `k8-lb2-dev` VMs (IDs 111/112) with a VIP at `172.16.1.19`, update `control_plane_endpoint` in `ansible/inventory/group_vars/all.yml`
+- **Ingress** — Deploy ingress-nginx via Flux HelmRelease (NodePort 30080/30443)
 - **Cert-Manager** — TLS for ingress with Let's Encrypt
-- **Monitoring** — kube-prometheus-stack via Flux HelmRelease
+- **Monitoring** — Grafana + kube-prometheus-stack via Flux HelmRelease
+- **Secret Management** — HashiCorp Vault with Vault Agent for secret injection
 
 ---
 
@@ -304,23 +404,29 @@ k8-dev-cluster/
 │   ├── inventory/
 │   │   ├── hosts.yml                ← All 8 nodes
 │   │   └── group_vars/              ← Cluster-wide variables
-│   ├── playbooks/                   ← Ordered execution playbooks
-│   │   ├── site.yml                 ← Entry point
+│   ├── playbooks/
+│   │   ├── site.yml                 ← Entry point (playbooks 01-06)
 │   │   ├── 01-common.yml
 │   │   ├── 02-containerd.yml
 │   │   ├── 03-kubernetes.yml
 │   │   ├── 04-masters.yml           ← kubeadm init + HA join
 │   │   ├── 05-workers.yml           ← Worker join
-│   │   └── 06-post-install.yml      ← Fetch kubeconfig, validate
+│   │   ├── 06-post-install.yml      ← Fetch kubeconfig, validate
+│   │   └── 07-storage.yml           ← iSCSI initiator install (make storage)
 │   └── roles/
-│       ├── common/                  ← OS hardening, sysctl, modules
-│       ├── containerd/              ← containerd + SystemdCgroup config
-│       ├── kubernetes/              ← kubeadm/kubelet/kubectl install
-│       ├── k8s-master/              ← kubeadm config template
+│       ├── common/
+│       ├── containerd/
+│       ├── kubernetes/
+│       ├── k8s-master/
 │       └── k8s-worker/
 └── flux/
     ├── clusters/k8-dev/             ← Flux sync config (auto-managed)
+    │   ├── flux-system/
+    │   └── apps/kustomization.yaml  ← Points Flux at flux/apps/k8-dev
     └── apps/
         ├── base/                    ← Reusable app bases
+        │   └── synology-csi/        ← Synology CSI HelmRelease + HelmRepository
         └── k8-dev/                  ← Cluster-specific overlays
+            ├── kustomization.yaml   ← Root overlay listing all apps
+            └── synology-csi/        ← Overlay referencing base
 ```
