@@ -7,24 +7,32 @@ spec:
   interval: 10m
   chart:
     spec:
-      chart: synology-csi
-      version: "^1.1.0"
+      chart: democratic-csi
+      version: ">=0.14.0"
       sourceRef:
         kind: HelmRepository
-        name: synology-csi
+        name: democratic-csi
         namespace: flux-system
       interval: 1h
   values:
-    global:
-      loginSecret: synology-csi-client-info
+    csiDriver:
+      name: "org.democratic-csi.synology-iscsi"
     storageClasses:
       - name: synology-iscsi
-        defaultStorageClass: true
+        defaultClass: true
         reclaimPolicy: Retain
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
         parameters:
           fsType: ext4
-          dsm: "172.16.1.30"
-          location: "/volume2"
-          protocol: iscsi
+    driver:
+      existingConfigSecret: democratic-csi-driver-config
+    node:
+      driver:
+        extraEnv:
+          - name: ISCSIADM_HOST_STRATEGY
+            value: nsenter
+          - name: ISCSIADM_HOST_PATH
+            value: /usr/sbin/iscsiadm
+        iscsiDirHostPath: /etc/iscsi
+        iscsiDirHostPathType: ""
