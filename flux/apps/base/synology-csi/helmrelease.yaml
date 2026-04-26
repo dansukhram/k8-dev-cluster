@@ -28,7 +28,7 @@ spec:
     driver:
       existingConfigSecret: democratic-csi-driver-config
       config:
-        driver: synology-api-iscsi
+        driver: synology-iscsi
     node:
       driver:
         extraEnv:
