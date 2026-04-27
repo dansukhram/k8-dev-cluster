@@ -30,6 +30,7 @@ spec:
       config:
         driver: synology-iscsi
     node:
+      hostPID: true
       driver:
         extraEnv:
           - name: ISCSIADM_HOST_STRATEGY
